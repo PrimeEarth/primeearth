@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PrimeEarth Control</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { 
+  background: #0b0f14; 
+  color: #39ff14; 
+  font-family: 'Courier New', monospace;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 20px;
+}
+h1 { 
+  font-size: 2.5em; 
+  margin-bottom: 30px; 
+  text-shadow: 0 0 10px #39ff14;
+}
+.status { 
+  font-size: 1.2em; 
+  margin-bottom: 40px; 
+  padding: 15px 30px;
+  border: 2px solid #39ff14;
+  border-radius: 10px;
+  background: rgba(57, 255, 20, 0.1);
+}
+.buttons {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+button {
+  padding: 20px 40px;
+  font-size: 1.3em;
+  font-weight: bold;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.3s;
+  font-family: 'Courier New', monospace;
+}
+.btn-on {
+  background: #39ff14;
+  color: #0b0f14;
+}
+.btn-on:hover {
+  background: #2ecc71;
+  transform: scale(1.05);
+}
+.btn-off {
+  background: #e74c3c;
+  color: white;
+}
+.btn-off:hover {
+  background: #c0392b;
+  transform: scale(1.05);
+}
+.btn-status {
+  background: #3498db;
+  color: white;
+}
+.btn-status:hover {
+  background: #2980b9;
+  transform: scale(1.05);
+}
+.config {
+  margin-top: 40px;
+  padding: 20px;
+  border: 1px solid #39ff14;
+  border-radius: 10px;
+  max-width: 600px;
+  width: 100%;
+}
+.config h3 {
+  margin-bottom: 15px;
+}
+.config input {
+  width: 100%;
+  padding: 10px;
+  margin: 5px 0;
+  background: #1a1f2e;
+  color: #39ff14;
+  border: 1px solid #39ff14;
+  border-radius: 5px;
+  font-family: 'Courier New', monospace;
+}
+.config button {
+  padding: 10px 20px;
+  font-size: 1em;
+  margin-top: 10px;
+  background: #39ff14;
+  color: #0b0f14;
+}
+.message {
+  margin-top: 20px;
+  padding: 15px;
+  border-radius: 5px;
+  display: none;
+}
+.message.show {
+  display: block;
+}
+.message.success {
+  background: rgba(57, 255, 20, 0.2);
+  border: 1px solid #39ff14;
+}
+.message.error {
+  background: rgba(231, 76, 60, 0.2);
+  border: 1px solid #e74c3c;
+}
+</style>
+</head>
+<body>
+<h1>🌍 PrimeEarth Control</h1>
+<div class="status" id="status">Status: Memeriksa...</div>
+<div class="buttons">
+  <button class="btn-on" onclick="sendCommand('activated')">⚡ AKTIFKAN</button>
+  <button class="btn-off" onclick="sendCommand('off')">🔴 MATIKAN</button>
+  <button class="btn-status" onclick="checkStatus()">📊 STATUS</button>
+</div>
+<div class="message" id="message"></div>
+<div class="config">
+  <h3>⚙️ Konfigurasi Alamat</h3>
+  <input type="text" id="serverUrl" placeholder="URL Server PrimeEarth">
+  <input type="text" id="apiKey" placeholder="API Key">
+  <button onclick="saveConfig()">💾 Simpan Konfigurasi</button>
+  <button onclick="loadAddresses()">🔄 Muat dari GitHub</button>
+</div>
+
+<script>
+const GITHUB_ADDRESSES = "https://raw.githubusercontent.com/PrimeEarth/primeearth/main/addresses.json";
+let currentUrl = "";
+let currentKey = "";
+
+function showMessage(text, type) {
+  const msg = document.getElementById('message');
+  msg.textContent = text;
+  msg.className = 'message show ' + type;
+  setTimeout(() => msg.className = 'message', 5000);
+}
+
+function loadConfig() {
+  currentUrl = localStorage.getItem('pe_serverUrl') || "";
+  currentKey = localStorage.getItem('pe_apiKey') || "";
+  document.getElementById('serverUrl').value = currentUrl;
+  document.getElementById('apiKey').value = currentKey;
+  if (currentUrl && currentKey) {
+    checkStatus();
+  } else {
+    document.getElementById('status').textContent = "Status: Konfigurasi belum diatur";
+  }
+}
+
+function saveConfig() {
+  currentUrl = document.getElementById('serverUrl').value.trim();
+  currentKey = document.getElementById('apiKey').value.trim();
+  localStorage.setItem('pe_serverUrl', currentUrl);
+  localStorage.setItem('pe_apiKey', currentKey);
+  showMessage("Konfigurasi disimpan!", "success");
+  checkStatus();
+}
+
+async function loadAddresses() {
+  try {
+    const response = await fetch(GITHUB_ADDRESSES + "?t=" + Date.now());
+    if (response.ok) {
+      const data = await response.json();
+      if (data.nodes && data.nodes.length > 0) {
+        const node = data.nodes[0];
+        currentUrl = node.url;
+        document.getElementById('serverUrl').value = currentUrl;
+        localStorage.setItem('pe_serverUrl', currentUrl);
+        showMessage("Alamat dimuat dari GitHub: " + currentUrl, "success");
+        checkStatus();
+      } else {
+        showMessage("Tidak ada node terdaftar di GitHub", "error");
+      }
+    } else {
+      showMessage("Gagal memuat dari GitHub", "error");
+    }
+  } catch (e) {
+    showMessage("Error: " + e.message, "error");
+  }
+}
+
+async function checkStatus() {
+  if (!currentUrl || !currentKey) {
+    document.getElementById('status').textContent = "Status: Konfigurasi belum lengkap";
+    return;
+  }
+  try {
+    const response = await fetch(currentUrl + "/?key=" + currentKey, {
+      method: 'GET',
+      mode: 'no-cors'
+    });
+    document.getElementById('status').textContent = "Status: Terhubung ke " + currentUrl;
+  } catch (e) {
+    document.getElementById('status').textContent = "Status: Tidak terhubung";
+  }
+}
+
+async function sendCommand(command) {
+  if (!currentUrl || !currentKey) {
+    showMessage("Konfigurasi belum lengkap! Isi URL dan API Key dulu.", "error");
+    return;
+  }
+  try {
+    const url = currentUrl + "/" + command + "?key=" + currentKey;
+    const response = await fetch(url, {
+      method: 'GET',
+      mode: 'no-cors'
+    });
+    if (command === 'activated') {
+      showMessage("✅ PrimeEarth AKTIF!", "success");
+      document.getElementById('status').textContent = "Status: AKTIF";
+    } else if (command === 'off') {
+      showMessage("🔴 PrimeEarth MATI (STANDBY)", "success");
+      document.getElementById('status').textContent = "Status: STANDBY";
+    }
+  } catch (e) {
+    showMessage("Error: " + e.message, "error");
+  }
+}
+
+loadConfig();
+</script>
+</body>
+</html>
