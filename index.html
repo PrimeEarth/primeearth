@@ -1,0 +1,19 @@
+<!doctype html><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1">
+<title>PrimeEarth</title>
+<body style="background:#0b0f14;color:#39ff14;font-family:monospace;text-align:center;padding-top:12%">
+<h1>PrimeEarth</h1><p id=s>mencari node hidup...</p><div id=l></div>
+<script>
+const RAW="https://raw.githubusercontent.com/primeearth/primeearth/main/addresses.json";
+const h=new URLSearchParams(location.hash.slice(1)),key=h.get("key")||"",
+ c=(h.get("q")||"activated").toLowerCase(),
+ p=c.includes("off")||c.includes("standby")?"/off":c.includes("status")?"/":"/activated";
+(async()=>{
+ let n=[];
+ for(const u of ["addresses.json?t="+Date.now(),RAW+"?t="+Date.now()]){
+  try{const r=await fetch(u,{cache:"no-store"});if(r.ok)n=(await r.json()).nodes||[]}catch(e){}}
+ for(const x of n){try{const r=await fetch(x.url+"/health",{cache:"no-store"});
+  if(r.ok){location.replace(x.url+p+"?key="+encodeURIComponent(key));return}}catch(e){}}
+ document.getElementById("s").textContent="semua node offline";
+ document.getElementById("l").innerHTML=n.map(x=>"<p><a style='color:#39ff14' href='"+x.url+p+"?key="+encodeURIComponent(key)+"'>"+x.id+"</a></p>").join("");
+})();
+</script>
