@@ -1,19 +1,56 @@
-<!doctype html><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1">
+<!doctype html><meta charset=utf-8>
+<meta name=viewport content="width=device-width,initial-scale=1">
+<meta name=theme-color content="#0b0f14">
 <title>PrimeEarth</title>
-<body style="background:#0b0f14;color:#39ff14;font-family:monospace;text-align:center;padding-top:12%">
-<h1>PrimeEarth</h1><p id=s>mencari node hidup...</p><div id=l></div>
+<style>
+ body{background:#0b0f14;color:#39ff14;font-family:monospace;text-align:center;margin:0;padding:24px 16px}
+ h1{font-size:22px;letter-spacing:2px}
+ .badge{display:inline-block;border:1px solid #39ff14;border-radius:6px;padding:6px 14px;margin:8px 0;font-size:14px}
+ .btns{display:flex;flex-direction:column;gap:14px;max-width:340px;margin:18px auto}
+ button{background:#0b0f14;color:#39ff14;border:2px solid #39ff14;border-radius:12px;padding:18px;font-size:18px;font-family:monospace;cursor:pointer}
+ button.off{color:#ff5555;border-color:#ff5555}
+ button.st{color:#55aaff;border-color:#55aaff}
+ input{background:#0b0f14;color:#39ff14;border:1px solid #39ff14;padding:10px;font-family:monospace;width:80%}
+ .node{font-size:11px;color:#1f7a1f;margin-top:14px;word-break:break-all}
+</style>
+<h1>PrimeEarth</h1>
+<div id=b class=badge>memuat…</div>
+<div id=u></div>
+<div id=c class=btns hidden>
+  <button id=on>AKTIFKAN</button>
+  <button id=off class=off>MATIKAN</button>
+  <button id=st class=st>STATUS</button>
+</div>
+<div id=n class=node></div>
 <script>
-const RAW="https://raw.githubusercontent.com/primeearth/primeearth/main/addresses.json";
-const h=new URLSearchParams(location.hash.slice(1)),key=h.get("key")||"",
- c=(h.get("q")||"activated").toLowerCase(),
- p=c.includes("off")||c.includes("standby")?"/off":c.includes("status")?"/":"/activated";
-(async()=>{
- let n=[];
- for(const u of ["addresses.json?t="+Date.now(),RAW+"?t="+Date.now()]){
-  try{const r=await fetch(u,{cache:"no-store"});if(r.ok)n=(await r.json()).nodes||[]}catch(e){}}
- for(const x of n){try{const r=await fetch(x.url+"/health",{cache:"no-store"});
-  if(r.ok){location.replace(x.url+p+"?key="+encodeURIComponent(key));return}}catch(e){}}
- document.getElementById("s").textContent="semua node offline";
- document.getElementById("l").innerHTML=n.map(x=>"<p><a style='color:#39ff14' href='"+x.url+p+"?key="+encodeURIComponent(key)+"'>"+x.id+"</a></p>").join("");
-})();
+const RAW="https://raw.githubusercontent.com/PrimeEarth/primeearth/main/addresses.json";
+const b=document.getElementById("b"),u=document.getElementById("u"),c=document.getElementById("c"),n=document.getElementById("n");
+let token=localStorage.getItem("pe_key")||"";
+const frag=new URLSearchParams(location.hash.slice(1));
+const m=frag.get("key"); if(m){token=m;localStorage.setItem("pe_key",token);}
+let pending=frag.get("q")||"";
+if(m||pending){history.replaceState(null,"",location.pathname);}
+let nodes=[],live="";
+async function loadNodes(){try{const r=await fetch(RAW+"?t="+Date.now(),{cache:"no-store"});if(r.ok)nodes=(await r.json()).nodes||[]}catch(e){}}
+async function pickLive(){
+ for(const x of nodes){try{const r=await fetch(x.url+"/health",{cache:"no-store"});if(r.ok){
+  live=x.url;const d=await r.json();
+  b.textContent=d.state==="ACTIVATED"?"● AKTIF":"○ STANDBY";
+  b.style.color=d.state==="ACTIVATED"?"#39ff14":"#999";
+  n.textContent=x.id+" · "+x.url;return;}}catch(e){}}
+ live="";b.textContent="✕ NODE OFFLINE";b.style.color="#ff5555";n.textContent="";}
+function ui(){
+ if(!token){b.hidden=true;c.hidden=true;
+  u.innerHTML='<p>masukkan token PrimeEarth sekali:</p><input id=k placeholder="token"><br><button id=sv style="margin-top:12px">Simpan</button>';
+  document.getElementById("sv").onclick=()=>{token=document.getElementById("k").value.trim();if(token)localStorage.setItem("pe_key",token);u.innerHTML="";b.hidden=false;c.hidden=false;refresh();};
+  return;}
+ u.innerHTML="";b.hidden=false;c.hidden=false;}
+async function fire(path){if(!live)return;try{await fetch(live+path+"?key="+encodeURIComponent(token),{mode:"no-cors",cache:"no-store"});}catch(e){}await new Promise(r=>setTimeout(r,900));await pickLive();}
+document.getElementById("on").onclick=()=>fire("/activated");
+document.getElementById("off").onclick=()=>fire("/off");
+document.getElementById("st").onclick=async()=>{await pickLive();b.textContent+=" · "+new Date().toLocaleTimeString();};
+b.onclick=()=>{if(confirm("reset token di perangkat ini?")){localStorage.removeItem("pe_key");token="";ui();}};
+async function refresh(){await loadNodes();await pickLive();}
+async function boot(){await refresh();if(pending&&token&&live){const p=pending.includes("off")?"/off":(pending.includes("status")?null:"/activated");if(p)await fire(p);}pending="";}
+ui();boot();setInterval(refresh,5000);
 </script>
